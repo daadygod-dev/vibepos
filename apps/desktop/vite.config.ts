@@ -6,7 +6,14 @@ export default defineConfig({
   plugins: [react()],
   resolve: { alias: { '@': path.resolve(__dirname, 'src') } },
   clearScreen: false,
-  server: { port: 1420, strictPort: true },
+  server: {
+    port: 1420,
+    strictPort: true,
+    watch: {
+      usePolling: true,
+      interval: 300,
+    },
+  },
   envPrefix: ['VITE_', 'TAURI_'],
   build: {
     target: 'chrome105',

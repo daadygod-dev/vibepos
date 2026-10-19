@@ -14,7 +14,28 @@ export default function ActivationPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { setConfig } = useConfigStore();
-  const { setTerminalToken } = useAuthStore();
+  const { setTerminalToken, setSession } = useAuthStore();
+
+  const launchDemo = (
+    customerId: string,
+    businessName: string,
+    businessType: 'restaurant' | 'grocery' | 'hotel'
+  ) => {
+    import('@vibe-pos/config-schema').then(({ createDefaultConfig, ROLE_PRESETS }) => {
+      const demo = createDefaultConfig(customerId, businessName, businessType);
+      setConfig(demo);
+      applyBranding(demo.branding);
+      const roles = ROLE_PRESETS[businessType] || ROLE_PRESETS.restaurant;
+      const managerRole = roles.find((r) => r.id === 'manager' || r.id === 'owner') || roles[0];
+      const staff = demo.staff.find((s) => s.roleId === managerRole.id) || demo.staff[0];
+      setSession({
+        staffId: staff.id,
+        staffName: staff.name,
+        role: managerRole,
+        startedAt: new Date().toISOString(),
+      });
+    });
+  };
 
   const activate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,13 +101,7 @@ export default function ActivationPage() {
               variant="outline"
               size="sm"
               className="flex-1 text-xs"
-              onClick={() => {
-                import('@vibe-pos/config-schema').then(({ createDefaultConfig }) => {
-                  const demo = createDefaultConfig('demo_rest', "Mario's Italian Bistro", 'restaurant');
-                  setConfig(demo);
-                  applyBranding(demo.branding);
-                });
-              }}
+              onClick={() => launchDemo('demo_rest', "Mario's Italian Bistro", 'restaurant')}
             >
               🍽️ Restaurant
             </Button>
@@ -94,13 +109,7 @@ export default function ActivationPage() {
               variant="outline"
               size="sm"
               className="flex-1 text-xs"
-              onClick={() => {
-                import('@vibe-pos/config-schema').then(({ createDefaultConfig }) => {
-                  const demo = createDefaultConfig('demo_groc', "Green Grocer Market", 'grocery');
-                  setConfig(demo);
-                  applyBranding(demo.branding);
-                });
-              }}
+              onClick={() => launchDemo('demo_groc', "Green Grocer Market", 'grocery')}
             >
               🛒 Grocery
             </Button>
@@ -108,13 +117,7 @@ export default function ActivationPage() {
               variant="outline"
               size="sm"
               className="flex-1 text-xs"
-              onClick={() => {
-                import('@vibe-pos/config-schema').then(({ createDefaultConfig }) => {
-                  const demo = createDefaultConfig('demo_hot', "Grand Palace Hotel", 'hotel');
-                  setConfig(demo);
-                  applyBranding(demo.branding);
-                });
-              }}
+              onClick={() => launchDemo('demo_hot', "Grand Palace Hotel", 'hotel')}
             >
               🏨 Hotel
             </Button>

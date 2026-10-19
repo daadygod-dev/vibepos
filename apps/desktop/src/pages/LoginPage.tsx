@@ -121,6 +121,27 @@ export default function LoginPage() {
             </p>
           </div>
 
+          {/* Quick 1-Click Dev / Demo Access Banner */}
+          <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-blue-900/40 via-indigo-900/30 to-purple-900/40 border border-blue-500/40 shadow-lg text-center">
+            <p className="text-xs text-blue-200 font-semibold mb-2">
+              ⚡ Instant Developer / Demo Access
+            </p>
+            <Button
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 shadow-md flex items-center justify-center gap-2 text-sm"
+              onClick={() => {
+                // Pick Manager or first staff
+                const manager = staffList.find((s) => s.roleId === 'manager' || s.roleId === 'owner') || staffList[0];
+                loginWithStaff(manager);
+              }}
+            >
+              <Zap size={16} className="text-yellow-300 fill-yellow-300" />
+              Sign In as {staffList.find((s) => s.roleId === 'manager' || s.roleId === 'owner')?.name || 'Manager'} (1-Click)
+            </Button>
+            <p className="text-[11px] text-gray-400 mt-1.5">
+              Instantly bypasses PIN to access Settings, Checkout, or Reports
+            </p>
+          </div>
+
           {/* Staff Roster Cards */}
           <div className="space-y-2.5">
             {staffList.map((st) => {
