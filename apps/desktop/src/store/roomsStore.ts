@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { PosRoom } from '@vibe-pos/config-schema';
 
 export type RoomStatus = 'available' | 'occupied' | 'checkout' | 'maintenance';
 export type RoomType = 'standard' | 'deluxe' | 'suite' | 'penthouse';
@@ -32,6 +33,7 @@ interface RoomsState {
   activeFloor: number;
   setActiveFloor: (floor: number) => void;
   setRooms: (rooms: Room[]) => void;
+  syncFromConfig: (configRooms?: PosRoom[]) => void;
   updateRoom: (id: string, patch: Partial<Room>) => void;
   checkInGuest: (id: string, guestName: string, guestPhone: string, checkOut: string) => void;
   checkOutRoom: (id: string) => void;
@@ -168,6 +170,38 @@ export const useRoomsStore = create<RoomsState>()(
       activeFloor: 1,
       setActiveFloor: (floor) => set({ activeFloor: floor }),
       setRooms: (rooms) => set({ rooms }),
+      syncFromConfig: (configRooms?: PosRoom[]) => {
+        if (!configRooms || configRooms.length === 0) return;
+        set((s) => {
+          const updatedRooms = configRooms.map((cr) => {
+            const existing = s.rooms.find((r) => r.id === cr.id);
+            if (existing) {
+              return {
+                ...existing,
+                number: cr.number,
+                floor: cr.floor,
+                type: cr.type,
+                rate: cr.rate,
+              };
+            }
+            return {
+              id: cr.id,
+              number: cr.number,
+              floor: cr.floor,
+              type: cr.type,
+              status: 'available' as RoomStatus,
+              rate: cr.rate,
+              guestName: null,
+              checkIn: null,
+              checkOut: null,
+              folio: [],
+            };
+          });
+          const floors = Array.from(new Set(updatedRooms.map((r) => r.floor))).sort((a, b) => a - b);
+          const activeFloor = floors.includes(s.activeFloor) ? s.activeFloor : floors[0] || 1;
+          return { rooms: updatedRooms, floors, activeFloor };
+        });
+      },
       updateRoom: (id, patch) =>
         set((s) => ({ rooms: s.rooms.map((r) => (r.id === id ? { ...r, ...patch } : r)) })),
       checkInGuest: (id, guestName, guestPhone, checkOut) =>

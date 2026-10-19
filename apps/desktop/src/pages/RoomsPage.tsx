@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   Badge,
@@ -44,10 +44,17 @@ export default function RoomsPage() {
     checkOutRoom,
     addFolioEntry,
     setRoomStatus,
+    syncFromConfig,
   } = useRoomsStore();
   const config = useConfigStore((s) => s.config);
   const currencySymbol = config?.pricing?.currencySymbol || '$';
   const canManageRooms = useCan('manage_rooms');
+
+  useEffect(() => {
+    if (config?.rooms && config.rooms.length > 0) {
+      syncFromConfig(config.rooms);
+    }
+  }, [config?.rooms, syncFromConfig]);
 
   // Selected room for modal
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);

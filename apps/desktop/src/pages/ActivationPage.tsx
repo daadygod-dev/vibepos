@@ -16,17 +16,53 @@ export default function ActivationPage() {
   const { setConfig } = useConfigStore();
   const { setTerminalToken, setSession } = useAuthStore();
 
-  const launchDemo = (
+  const launchDemo = async (
     customerId: string,
     businessName: string,
     businessType: 'restaurant' | 'grocery' | 'hotel'
   ) => {
-    import('@vibe-pos/config-schema').then(({ createDefaultConfig, ROLE_PRESETS }) => {
+    setLoading(true);
+    setError('');
+    const LICENSE_KEYS: Record<string, string> = {
+      restaurant: 'LK-DEMO-RESTAURANT-2026',
+      grocery: 'LK-DEMO-GROCERY-2026',
+      hotel: 'LK-DEMO-HOTEL-2026',
+    };
+    const key = LICENSE_KEYS[businessType];
+    setLicenseKey(key);
+    try {
+      const authRes = await axios.post(`${API_URL}/auth/terminal`, { licenseKey: key });
+      const { token, customerId: fetchedCustId } = authRes.data;
+      setTerminalToken(token);
+
+      const configRes = await axios.get(`${API_URL}/config/${fetchedCustId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const realConfig = configRes.data.config as PosConfig;
+      setConfig(realConfig);
+      applyBranding(realConfig.branding);
+
+      const managerRole =
+        realConfig.roles?.find((r) => r.id.includes('manager') || r.id.includes('owner')) ||
+        realConfig.roles?.[0];
+      const staff =
+        realConfig.staff?.find((s) => s.roleId === managerRole?.id) || realConfig.staff?.[0];
+      if (staff && managerRole) {
+        setSession({
+          staffId: staff.id,
+          staffName: staff.name,
+          role: managerRole,
+          startedAt: new Date().toISOString(),
+        });
+      }
+    } catch {
+      // Offline fallback: load from schema generator
+      const { createDefaultConfig, ROLE_PRESETS } = await import('@vibe-pos/config-schema');
       const demo = createDefaultConfig(customerId, businessName, businessType);
       setConfig(demo);
       applyBranding(demo.branding);
       const roles = ROLE_PRESETS[businessType] || ROLE_PRESETS.restaurant;
-      const managerRole = roles.find((r) => r.id === 'manager' || r.id === 'owner') || roles[0];
+      const managerRole = roles.find((r) => r.id.includes('manager') || r.id.includes('owner')) || roles[0];
       const staff = demo.staff.find((s) => s.roleId === managerRole.id) || demo.staff[0];
       setSession({
         staffId: staff.id,
@@ -34,7 +70,9 @@ export default function ActivationPage() {
         role: managerRole,
         startedAt: new Date().toISOString(),
       });
-    });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const activate = async (e: React.FormEvent) => {
@@ -43,7 +81,7 @@ export default function ActivationPage() {
     setError('');
     try {
       // 1. Authenticate with license key → get terminal JWT
-      const authRes = await axios.post(`${API_URL}/auth/terminal`, { licenseKey });
+      const authRes = await axios.post(`${API_URL}/auth/terminal`, { licenseKey: licenseKey.trim() });
       const { token, customerId } = authRes.data;
       setTerminalToken(token);
 
@@ -54,6 +92,20 @@ export default function ActivationPage() {
       const config = configRes.data.config as PosConfig;
       setConfig(config);
       applyBranding(config.branding);
+
+      // 3. Auto-login default manager
+      const managerRole =
+        config.roles?.find((r) => r.id.includes('manager') || r.id.includes('owner')) ||
+        config.roles?.[0];
+      const staff = config.staff?.find((s) => s.roleId === managerRole?.id) || config.staff?.[0];
+      if (staff && managerRole) {
+        setSession({
+          staffId: staff.id,
+          staffName: staff.name,
+          role: managerRole,
+          startedAt: new Date().toISOString(),
+        });
+      }
     } catch {
       setError('Invalid license key or server unreachable. Please verify.');
     } finally {

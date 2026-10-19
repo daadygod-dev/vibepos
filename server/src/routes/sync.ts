@@ -74,7 +74,6 @@ syncRouter.post('/push', requireAuth, async (c) => {
   if (records.length > 0) {
     await db.insert(syncRecords).values(
       records.map((r) => ({
-        id: undefined, // auto-generated
         customerId,
         tableName: r.tableName,
         recordId: r.recordId,

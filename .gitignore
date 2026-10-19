@@ -23,6 +23,7 @@ server/.env
 *.db-wal
 *.db-shm
 vibe_pos.db
+server/data/
 
 # Tauri Build Artifacts
 src-tauri/target/

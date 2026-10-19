@@ -11,6 +11,9 @@ import {
   type BusinessType,
   type Permission,
   type StaffMember,
+  type PosItem,
+  type PosTable,
+  type PosRoom,
 } from '@vibe-pos/config-schema';
 import {
   Button,
@@ -38,6 +41,12 @@ import {
   ExternalLink,
   Calendar,
   Zap,
+  Trash2,
+  Barcode,
+  Scale,
+  BedDouble,
+  Armchair,
+  ShoppingBag,
 } from 'lucide-react';
 
 export default function CustomerEditPage({ isNew }: { isNew?: boolean }) {
@@ -166,9 +175,11 @@ export default function CustomerEditPage({ isNew }: { isNew?: boolean }) {
       ) : (
         config && (
           <Tabs defaultValue="roles" className="w-full">
-            <TabsList className="grid grid-cols-6 w-full max-w-2xl">
+            <TabsList className="flex flex-wrap gap-1.5 w-full bg-gray-900/80 p-1.5 rounded-xl border border-gray-800">
               <TabsTrigger value="roles">Roles</TabsTrigger>
               <TabsTrigger value="staff">Staff & PINs</TabsTrigger>
+              <TabsTrigger value="catalog">Products & Catalog</TabsTrigger>
+              <TabsTrigger value="layout">Floor & Rooms</TabsTrigger>
               <TabsTrigger value="features">Features</TabsTrigger>
               <TabsTrigger value="branding">Branding</TabsTrigger>
               <TabsTrigger value="pricing">Pricing & Tax</TabsTrigger>
@@ -181,6 +192,14 @@ export default function CustomerEditPage({ isNew }: { isNew?: boolean }) {
 
             <TabsContent value="staff">
               <StaffConfigTab config={config} onChange={setConfig} />
+            </TabsContent>
+
+            <TabsContent value="catalog">
+              <CatalogConfigTab config={config} onChange={setConfig} />
+            </TabsContent>
+
+            <TabsContent value="layout">
+              <LayoutConfigTab config={config} onChange={setConfig} />
             </TabsContent>
 
             <TabsContent value="features">
@@ -930,4 +949,487 @@ function LicenseBillingTab({
     </div>
   );
 }
+
+// ── Dynamic Products & Catalog Tab ───────────────────────────────────────────
+function CatalogConfigTab({ config, onChange }: { config: PosConfig; onChange: (c: PosConfig) => void }) {
+  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [name, setName] = useState('');
+  const [price, setPrice] = useState('');
+  const [category, setCategory] = useState(config.categories?.[0] || 'Main');
+  const [barcode, setBarcode] = useState('');
+  const [isWeightBased, setIsWeightBased] = useState(false);
+  const [newCat, setNewCat] = useState('');
+
+  const items = config.items || [];
+  const categories = config.categories || [];
+
+  const filteredItems = activeCategory === 'all'
+    ? items
+    : items.filter((i) => i.category === activeCategory);
+
+  const handleAddItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    const numPrice = parseFloat(price);
+    if (!name || isNaN(numPrice)) return;
+
+    const newItem: PosItem = {
+      id: `item_${Date.now()}`,
+      name: name.trim(),
+      price: numPrice,
+      category,
+      barcode: barcode.trim() || undefined,
+      isWeightBased,
+      unit: isWeightBased ? 'kg' : undefined,
+      pricePerUnit: isWeightBased ? numPrice : undefined,
+    };
+
+    onChange({
+      ...config,
+      items: [newItem, ...items],
+    });
+
+    setName('');
+    setPrice('');
+    setBarcode('');
+    setIsWeightBased(false);
+  };
+
+  const handleDeleteItem = (id: string) => {
+    onChange({
+      ...config,
+      items: items.filter((i) => i.id !== id),
+    });
+  };
+
+  const handleAddCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = newCat.trim();
+    if (!trimmed || categories.includes(trimmed)) return;
+    onChange({
+      ...config,
+      categories: [...categories, trimmed],
+    });
+    setNewCat('');
+    setCategory(trimmed);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header & Category Manager */}
+      <Card className="p-6 border-gray-800 bg-gray-900/80">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <ShoppingBag size={18} className="text-blue-400" /> Products & Menu Catalog
+            </h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Configure items, categories, barcodes, and weight pricing sent directly to POS
+            </p>
+          </div>
+
+          {/* Quick Add Category */}
+          <form onSubmit={handleAddCategory} className="flex items-center gap-2">
+            <Input
+              value={newCat}
+              onChange={(e) => setNewCat(e.target.value)}
+              placeholder="New category..."
+              className="h-8 text-xs w-36 bg-gray-950 border-gray-700"
+            />
+            <Button type="submit" size="sm" variant="secondary" className="h-8 text-xs">
+              <Plus size={12} className="mr-1" /> Add
+            </Button>
+          </form>
+        </div>
+
+        {/* Category Filter Pills */}
+        <div className="flex flex-wrap gap-1.5 pt-2 border-t border-gray-800">
+          <button
+            onClick={() => setActiveCategory('all')}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition ${
+              activeCategory === 'all'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-gray-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            All Products ({items.length})
+          </button>
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition ${
+                activeCategory === cat
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-gray-800 text-gray-400 hover:text-white'
+              }`}
+            >
+              {cat} ({items.filter((i) => i.category === cat).length})
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      {/* Add New Item Form */}
+      <Card className="p-6 border-gray-800 bg-gray-900/80">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-1.5">
+          <Plus size={14} className="text-blue-400" /> Add New Item to Catalog
+        </h3>
+        <form onSubmit={handleAddItem} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 items-end">
+          <div className="md:col-span-2">
+            <label className="block text-[11px] font-medium text-gray-400 mb-1">Item Name</label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Truffle Pizza"
+              className="h-9 text-xs"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-1">Price ($)</label>
+            <Input
+              type="number"
+              step="0.01"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="9.50"
+              className="h-9 text-xs"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-1">Category</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full h-9 rounded-lg border border-gray-800 bg-gray-950 px-2.5 text-xs text-gray-200 outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {categories.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-gray-400 mb-1">Barcode (Opt)</label>
+            <Input
+              value={barcode}
+              onChange={(e) => setBarcode(e.target.value)}
+              placeholder="4901234567890"
+              className="h-9 text-xs font-mono"
+            />
+          </div>
+
+          <div className="md:col-span-5 flex items-center justify-between pt-2">
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300">
+              <Checkbox
+                checked={isWeightBased}
+                onCheckedChange={(c) => setIsWeightBased(!!c)}
+              />
+              <span className="flex items-center gap-1">
+                <Scale size={13} className="text-amber-400" /> Weight-based pricing (per kg)
+              </span>
+            </label>
+
+            <Button type="submit" size="sm" className="text-xs h-9 bg-blue-600 hover:bg-blue-500 px-5">
+              Add to Catalog
+            </Button>
+          </div>
+        </form>
+      </Card>
+
+      {/* Items Table */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {filteredItems.map((item) => (
+          <Card key={item.id} className="p-4 border-gray-800/80 bg-gray-900/60 hover:bg-gray-900 transition flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-white">{item.name}</p>
+                {item.isWeightBased && (
+                  <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-500/40">
+                    kg
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 flex items-center gap-2">
+                <span className="text-emerald-400 font-semibold font-mono">
+                  ${item.price.toFixed(2)}{item.isWeightBased ? '/kg' : ''}
+                </span>
+                <span>•</span>
+                <span className="text-gray-500">{item.category}</span>
+              </p>
+              {item.barcode && (
+                <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1">
+                  <Barcode size={10} /> {item.barcode}
+                </p>
+              )}
+            </div>
+
+            <button
+              onClick={() => handleDeleteItem(item.id)}
+              className="text-gray-500 hover:text-rose-400 p-2 transition rounded-lg hover:bg-rose-500/10"
+              title="Delete item"
+            >
+              <Trash2 size={15} />
+            </button>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Dynamic Floor & Rooms Layout Tab ──────────────────────────────────────────
+function LayoutConfigTab({ config, onChange }: { config: PosConfig; onChange: (c: PosConfig) => void }) {
+  const isRestaurant = config.businessType === 'restaurant';
+  const isHotel = config.businessType === 'hotel';
+
+  // Restaurant Table State
+  const [tableName, setTableName] = useState('');
+  const [seats, setSeats] = useState('4');
+  const [floor, setFloor] = useState('Main Hall');
+
+  // Hotel Room State
+  const [roomNum, setRoomNum] = useState('');
+  const [roomFloor, setRoomFloor] = useState('1');
+  const [roomType, setRoomType] = useState<'standard' | 'deluxe' | 'suite' | 'penthouse'>('standard');
+  const [roomRate, setRoomRate] = useState('95');
+
+  const tables = config.tables || [];
+  const rooms = config.rooms || [];
+
+  const handleAddTable = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tableName) return;
+    const numSeats = parseInt(seats, 10) || 4;
+    const newTable: PosTable = {
+      id: `T_${Date.now()}`,
+      name: tableName.trim(),
+      seats: numSeats,
+      floor,
+      x: 0,
+      y: 0,
+    };
+    onChange({
+      ...config,
+      tables: [...tables, newTable],
+    });
+    setTableName('');
+  };
+
+  const handleDeleteTable = (id: string) => {
+    onChange({
+      ...config,
+      tables: tables.filter((t) => t.id !== id),
+    });
+  };
+
+  const handleAddRoom = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!roomNum) return;
+    const rate = parseFloat(roomRate) || 85;
+    const fl = parseInt(roomFloor, 10) || 1;
+    const newRoom: PosRoom = {
+      id: `R_${roomNum.trim()}`,
+      number: roomNum.trim(),
+      floor: fl,
+      type: roomType,
+      rate,
+    };
+    onChange({
+      ...config,
+      rooms: [...rooms, newRoom],
+    });
+    setRoomNum('');
+  };
+
+  const handleDeleteRoom = (id: string) => {
+    onChange({
+      ...config,
+      rooms: rooms.filter((r) => r.id !== id),
+    });
+  };
+
+  if (isRestaurant) {
+    return (
+      <div className="space-y-6">
+        <Card className="p-6 border-gray-800 bg-gray-900/80">
+          <div className="mb-4">
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <Armchair size={18} className="text-blue-400" /> Restaurant Floor & Table Layout
+            </h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Tables configured here are automatically synchronized to the desktop Table Map
+            </p>
+          </div>
+
+          <form onSubmit={handleAddTable} className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+            <div>
+              <label className="block text-[11px] font-medium text-gray-400 mb-1">Table Name</label>
+              <Input
+                value={tableName}
+                onChange={(e) => setTableName(e.target.value)}
+                placeholder="e.g. Table 12"
+                className="h-9 text-xs"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium text-gray-400 mb-1">Seats</label>
+              <Input
+                type="number"
+                min="1"
+                max="20"
+                value={seats}
+                onChange={(e) => setSeats(e.target.value)}
+                className="h-9 text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium text-gray-400 mb-1">Floor Section</label>
+              <select
+                value={floor}
+                onChange={(e) => setFloor(e.target.value)}
+                className="w-full h-9 rounded-lg border border-gray-800 bg-gray-950 px-2.5 text-xs text-gray-200 outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="Main Hall">Main Hall</option>
+                <option value="Patio">Patio</option>
+                <option value="VIP">VIP</option>
+                <option value="Bar">Bar</option>
+              </select>
+            </div>
+            <Button type="submit" size="sm" className="h-9 text-xs bg-blue-600 hover:bg-blue-500">
+              <Plus size={14} className="mr-1" /> Add Table
+            </Button>
+          </form>
+        </Card>
+
+        {/* Tables Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {tables.map((t) => (
+            <Card key={t.id} className="p-4 border-gray-800 bg-gray-900/60 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-white">{t.name}</p>
+                <p className="text-xs text-gray-400">{t.seats} Seats • {t.floor}</p>
+              </div>
+              <button
+                onClick={() => handleDeleteTable(t.id)}
+                className="text-gray-500 hover:text-rose-400 p-1.5 transition"
+                title="Remove table"
+              >
+                <Trash2 size={14} />
+              </button>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (isHotel) {
+    return (
+      <div className="space-y-6">
+        <Card className="p-6 border-gray-800 bg-gray-900/80">
+          <div className="mb-4">
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <BedDouble size={18} className="text-blue-400" /> Hotel Rooms & Folio Configuration
+            </h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Manage room numbers, types, and nightly rates pushed to the desktop Rooms manager
+            </p>
+          </div>
+
+          <form onSubmit={handleAddRoom} className="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
+            <div>
+              <label className="block text-[11px] font-medium text-gray-400 mb-1">Room #</label>
+              <Input
+                value={roomNum}
+                onChange={(e) => setRoomNum(e.target.value)}
+                placeholder="e.g. 104"
+                className="h-9 text-xs"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium text-gray-400 mb-1">Floor</label>
+              <Input
+                type="number"
+                min="1"
+                max="50"
+                value={roomFloor}
+                onChange={(e) => setRoomFloor(e.target.value)}
+                className="h-9 text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium text-gray-400 mb-1">Type</label>
+              <select
+                value={roomType}
+                onChange={(e) => setRoomType(e.target.value as any)}
+                className="w-full h-9 rounded-lg border border-gray-800 bg-gray-950 px-2.5 text-xs text-gray-200 outline-none"
+              >
+                <option value="standard">Standard</option>
+                <option value="deluxe">Deluxe</option>
+                <option value="suite">Suite</option>
+                <option value="penthouse">Penthouse</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-medium text-gray-400 mb-1">Rate ($/night)</label>
+              <Input
+                type="number"
+                value={roomRate}
+                onChange={(e) => setRoomRate(e.target.value)}
+                className="h-9 text-xs"
+              />
+            </div>
+            <Button type="submit" size="sm" className="h-9 text-xs bg-blue-600 hover:bg-blue-500">
+              <Plus size={14} className="mr-1" /> Add Room
+            </Button>
+          </form>
+        </Card>
+
+        {/* Rooms Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {rooms.map((r) => (
+            <Card key={r.id} className="p-4 border-gray-800 bg-gray-900/60 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-white">Room {r.number}</p>
+                <p className="text-xs text-gray-400 capitalize">{r.type} • Floor {r.floor}</p>
+                <p className="text-xs text-emerald-400 font-mono font-medium">${r.rate}/night</p>
+              </div>
+              <button
+                onClick={() => handleDeleteRoom(r.id)}
+                className="text-gray-500 hover:text-rose-400 p-1.5 transition"
+                title="Remove room"
+              >
+                <Trash2 size={14} />
+              </button>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Grocery layout / scanner info
+  return (
+    <Card className="p-6 border-gray-800 bg-gray-900/80 space-y-3">
+      <h2 className="text-base font-bold text-white flex items-center gap-2">
+        <Scale size={18} className="text-emerald-400" /> Grocery Scanner & Scale Hardware Setup
+      </h2>
+      <p className="text-xs text-gray-400 leading-relaxed">
+        Grocery stores use USB/Bluetooth barcode scanners and digital weight scales. Configure products under the{' '}
+        <strong className="text-blue-400">Products & Catalog</strong> tab with barcodes or weight-based flags.
+      </p>
+      <div className="p-4 rounded-xl bg-gray-950 border border-gray-800 text-xs text-gray-300 space-y-1">
+        <p>• <strong>Barcode Scanner:</strong> Ready for plug-and-play HID USB barcode scanners.</p>
+        <p>• <strong>Scale Simulator:</strong> Live digital tare and weight computation in kg, g, and lb.</p>
+      </div>
+    </Card>
+  );
+}
+
 

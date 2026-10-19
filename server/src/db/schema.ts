@@ -1,53 +1,53 @@
-import { pgTable, text, integer, jsonb, timestamp, date, bigserial, boolean } from 'drizzle-orm/pg-core';
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
 // -------------------------------------------------------
 // Vendor users (only you)
 // -------------------------------------------------------
-export const vendorUsers = pgTable('vendor_users', {
+export const vendorUsers = sqliteTable('vendor_users', {
   id: text('id').primaryKey(),
   email: text('email').unique().notNull(),
   passwordHash: text('password_hash').notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
+  createdAt: text('created_at').$defaultFn(() => new Date().toISOString()).notNull(),
 });
 
 // -------------------------------------------------------
 // Customers (businesses you serve)
 // -------------------------------------------------------
-export const customers = pgTable('customers', {
+export const customers = sqliteTable('customers', {
   id: text('id').primaryKey(),
   vendorId: text('vendor_id').references(() => vendorUsers.id),
   name: text('name').notNull(),
   businessType: text('business_type').notNull(),
   licenseKey: text('license_key').unique().notNull(),
   licenseStatus: text('license_status').default('active').notNull(),
-  paidUntil: date('paid_until'),
+  paidUntil: text('paid_until'),
   stripeCustomerId: text('stripe_customer_id'),
   stripeSubscriptionId: text('stripe_subscription_id'),
   configVersion: integer('config_version').default(1).notNull(),
-  active: boolean('active').default(true).notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
+  active: integer('active', { mode: 'boolean' }).default(true).notNull(),
+  createdAt: text('created_at').$defaultFn(() => new Date().toISOString()).notNull(),
 });
 
 // -------------------------------------------------------
 // Config profiles (versioned per customer)
 // -------------------------------------------------------
-export const configProfiles = pgTable('config_profiles', {
-  id: bigserial('id', { mode: 'number' }),
+export const configProfiles = sqliteTable('config_profiles', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
   customerId: text('customer_id').references(() => customers.id).notNull(),
   version: integer('version').notNull(),
-  config: jsonb('config').notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
+  config: text('config', { mode: 'json' }).notNull(),
+  createdAt: text('created_at').$defaultFn(() => new Date().toISOString()).notNull(),
 });
 
 // -------------------------------------------------------
 // Sync records (delta from desktop app)
 // -------------------------------------------------------
-export const syncRecords = pgTable('sync_records', {
-  id: bigserial('id', { mode: 'number' }),
+export const syncRecords = sqliteTable('sync_records', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
   customerId: text('customer_id').references(() => customers.id).notNull(),
   tableName: text('table_name').notNull(),
   recordId: text('record_id').notNull(),
-  operation: text('operation').notNull(), // 'insert' | 'update'
-  data: jsonb('data').notNull(),
-  syncedAt: timestamp('synced_at').defaultNow(),
+  operation: text('operation').notNull(), // 'insert' | 'update' | 'delete'
+  data: text('data', { mode: 'json' }).notNull(),
+  syncedAt: text('synced_at').$defaultFn(() => new Date().toISOString()).notNull(),
 });

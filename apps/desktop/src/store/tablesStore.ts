@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import type { PosTable } from '@vibe-pos/config-schema';
+
 export type TableStatus = 'available' | 'occupied' | 'reserved' | 'dirty';
 
 export interface TableDef {
@@ -20,6 +22,7 @@ interface TablesState {
   floors: string[];
   activeFloor: string;
   setTables: (tables: TableDef[]) => void;
+  syncFromConfig: (configTables?: PosTable[]) => void;
   updateTable: (id: string, patch: Partial<TableDef>) => void;
   setActiveFloor: (floor: string) => void;
   occupyTable: (id: string, orderId: string, bill?: number) => void;
@@ -51,6 +54,37 @@ export const useTablesStore = create<TablesState>()(
       floors: ['Main Hall', 'Patio', 'VIP'],
       activeFloor: 'Main Hall',
       setTables: (tables) => set({ tables }),
+      syncFromConfig: (configTables?: PosTable[]) => {
+        if (!configTables || configTables.length === 0) return;
+        set((s) => {
+          const updatedTables = configTables.map((ct) => {
+            const existing = s.tables.find((t) => t.id === ct.id);
+            if (existing) {
+              return {
+                ...existing,
+                name: ct.name,
+                seats: ct.seats,
+                floor: ct.floor,
+                x: ct.x,
+                y: ct.y,
+              };
+            }
+            return {
+              id: ct.id,
+              name: ct.name,
+              seats: ct.seats,
+              floor: ct.floor,
+              x: ct.x,
+              y: ct.y,
+              status: 'available' as TableStatus,
+              currentOrderId: null,
+            };
+          });
+          const floors = Array.from(new Set(updatedTables.map((t) => t.floor)));
+          const activeFloor = floors.includes(s.activeFloor) ? s.activeFloor : floors[0] || 'Main Hall';
+          return { tables: updatedTables, floors, activeFloor };
+        });
+      },
       updateTable: (id, patch) =>
         set((s) => ({ tables: s.tables.map((t) => (t.id === id ? { ...t, ...patch } : t)) })),
       setActiveFloor: (floor) => set({ activeFloor: floor }),

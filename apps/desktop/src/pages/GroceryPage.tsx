@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Card, Badge, Button, Input, Tabs, TabsList, TabsTrigger } from '@vibe-pos/ui-kit';
 import { useConfigStore } from '../store/configStore';
 import { FeatureGate } from '../components/FeatureGate';
+import { ITEM_PRESETS, PosItem } from '@vibe-pos/config-schema';
 import {
   Barcode,
   Scale,
@@ -30,50 +31,71 @@ interface WeightItem {
   category: string;
 }
 
-const BARCODE_CATALOG: Record<string, { name: string; price: number; category: string }> = {
-  '012345678901': { name: 'Fresh Whole Milk 1L', price: 2.1, category: 'Dairy' },
-  '012345678902': { name: 'Artisan Sourdough Loaf', price: 3.5, category: 'Bakery' },
-  '012345678903': { name: 'Extra Virgin Olive Oil 750ml', price: 8.9, category: 'Pantry' },
-  '012345678904': { name: 'Greek Style Yogurt 500g', price: 2.8, category: 'Dairy' },
-  '012345678905': { name: 'Sparkling Mineral Water 1.5L', price: 1.2, category: 'Beverages' },
-  '012345678906': { name: 'Free-Range Eggs 12pk', price: 4.2, category: 'Dairy' },
-};
-
-const SAMPLE_WEIGHT_ITEMS: WeightItem[] = [
-  { id: 'w1', name: 'Organic Bananas', pricePerUnit: 1.8, unit: 'kg', category: 'Produce' },
-  { id: 'w2', name: 'Gala Apples', pricePerUnit: 2.4, unit: 'kg', category: 'Produce' },
-  { id: 'w3', name: 'Artisan Cheddar', pricePerUnit: 14.5, unit: 'kg', category: 'Deli' },
-  { id: 'w4', name: 'Honey Roast Ham', pricePerUnit: 16.0, unit: 'kg', category: 'Deli' },
-  { id: 'w5', name: 'Fresh Atlantic Salmon', pricePerUnit: 24.0, unit: 'kg', category: 'Seafood' },
-];
-
 export default function GroceryPage() {
   const config = useConfigStore((s) => s.config);
   const currencySymbol = config?.pricing?.currencySymbol || '$';
 
+  // Dynamic products from config
+  const allItems: PosItem[] =
+    config?.items && config.items.length > 0
+      ? config.items
+      : ITEM_PRESETS.grocery;
+
+  const barcodeItems = allItems.filter((i) => i.barcode);
+
+  const weightItems: WeightItem[] = allItems
+    .filter((i) => i.isWeightBased)
+    .map((i) => ({
+      id: i.id,
+      name: i.name,
+      pricePerUnit: i.pricePerUnit || i.price,
+      unit: (i.unit as 'kg' | 'g' | 'lb') || 'kg',
+      category: i.category,
+    }));
+
+  const effectiveWeightItems =
+    weightItems.length > 0
+      ? weightItems
+      : [
+          { id: 'w1', name: 'Organic Bananas', pricePerUnit: 1.8, unit: 'kg' as const, category: 'Produce' },
+          { id: 'w2', name: 'Gala Apples', pricePerUnit: 2.4, unit: 'kg' as const, category: 'Produce' },
+        ];
+
   // Barcode Scanner State
   const [barcodeInput, setBarcodeInput] = useState('');
-  const [scanHistory, setScanHistory] = useState<ScannedProduct[]>([
-    {
-      barcode: '012345678901',
-      name: 'Fresh Whole Milk 1L',
-      category: 'Dairy',
-      price: 2.1,
-      scannedAt: '12:04:12',
-    },
-    {
-      barcode: '012345678902',
-      name: 'Artisan Sourdough Loaf',
-      category: 'Bakery',
-      price: 3.5,
-      scannedAt: '12:05:30',
-    },
-  ]);
+  const [scanHistory, setScanHistory] = useState<ScannedProduct[]>(() => {
+    if (barcodeItems.length >= 2) {
+      return [
+        {
+          barcode: barcodeItems[0].barcode!,
+          name: barcodeItems[0].name,
+          category: barcodeItems[0].category,
+          price: barcodeItems[0].price,
+          scannedAt: '12:04:12',
+        },
+        {
+          barcode: barcodeItems[1].barcode!,
+          name: barcodeItems[1].name,
+          category: barcodeItems[1].category,
+          price: barcodeItems[1].price,
+          scannedAt: '12:05:30',
+        },
+      ];
+    }
+    return [];
+  });
   const [scanStatus, setScanStatus] = useState<'idle' | 'success' | 'not_found'>('idle');
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Scale / Weight-based State
-  const [selectedWeightItem, setSelectedWeightItem] = useState<WeightItem>(SAMPLE_WEIGHT_ITEMS[0]);
+  const [selectedWeightItem, setSelectedWeightItem] = useState<WeightItem>(effectiveWeightItems[0]);
+
+  useEffect(() => {
+    if (effectiveWeightItems.length > 0 && !effectiveWeightItems.some((w) => w.id === selectedWeightItem?.id)) {
+      setSelectedWeightItem(effectiveWeightItems[0]);
+    }
+  }, [effectiveWeightItems, selectedWeightItem]);
+
   const [weightValue, setWeightValue] = useState<number>(0.85); // 0.85 kg
   const [weightUnit, setWeightUnit] = useState<'kg' | 'g' | 'lb'>('kg');
   const [isTare, setIsTare] = useState(false);
@@ -84,7 +106,7 @@ export default function GroceryPage() {
     const code = barcodeInput.trim();
     if (!code) return;
 
-    const matched = BARCODE_CATALOG[code];
+    const matched = allItems.find((i) => i.barcode === code);
     if (matched) {
       const newScan: ScannedProduct = {
         barcode: code,
@@ -187,17 +209,17 @@ export default function GroceryPage() {
                   Click sample barcode to simulate hardware scan:
                 </span>
                 <div className="flex flex-wrap gap-1.5">
-                  {Object.entries(BARCODE_CATALOG).map(([code, p]) => (
+                  {barcodeItems.slice(0, 6).map((p) => (
                     <button
-                      key={code}
+                      key={p.id}
                       type="button"
                       onClick={() => {
-                        setBarcodeInput(code);
+                        setBarcodeInput(p.barcode!);
                         setTimeout(() => handleBarcodeSubmit(), 10);
                       }}
                       className="text-xs px-2.5 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300 font-mono border border-gray-700/60 transition text-left"
                     >
-                      {p.name.split(' ')[0]} ({code.slice(-4)})
+                      {p.name.split(' ')[0]} (#{p.barcode!.slice(-4)})
                     </button>
                   ))}
                 </div>
@@ -258,13 +280,13 @@ export default function GroceryPage() {
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-300">Select Weighted Item:</label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {SAMPLE_WEIGHT_ITEMS.map((item) => (
+                  {effectiveWeightItems.map((item) => (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => setSelectedWeightItem(item)}
                       className={`p-2.5 rounded-lg border text-left transition select-none ${
-                        selectedWeightItem.id === item.id
+                        selectedWeightItem?.id === item.id
                           ? 'border-emerald-500 bg-emerald-500/10 text-white shadow'
                           : 'border-gray-800 bg-gray-950/60 text-gray-400 hover:border-gray-700'
                       }`}

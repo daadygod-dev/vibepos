@@ -332,6 +332,105 @@ export const STAFF_PRESETS: Record<BusinessType, StaffMember[]> = {
 };
 
 // -------------------------------------------------------
+// Product & Catalog Definitions
+// -------------------------------------------------------
+export interface PosItem {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  barcode?: string;
+  isWeightBased?: boolean;
+  unit?: 'kg' | 'g' | 'lb' | 'unit';
+  pricePerUnit?: number;
+}
+
+export const CATEGORIES_PRESETS: Record<BusinessType, string[]> = {
+  restaurant: ['Main', 'Starters', 'Dessert', 'Drinks', 'Specials'],
+  grocery: ['Produce', 'Bakery', 'Dairy', 'Deli', 'Pantry'],
+  hotel: ['Rooms', 'Dining', 'Services', 'Wellness', 'Minibar'],
+};
+
+export const ITEM_PRESETS: Record<BusinessType, PosItem[]> = {
+  restaurant: [
+    { id: 'item_1', name: 'Margherita Pizza', price: 12.5, category: 'Main' },
+    { id: 'item_2', name: 'Classic Burger', price: 9.0, category: 'Main' },
+    { id: 'item_3', name: 'Caesar Salad', price: 7.5, category: 'Starters' },
+    { id: 'item_4', name: 'Crispy Calamari', price: 10.0, category: 'Starters' },
+    { id: 'item_5', name: 'Truffle Pasta', price: 16.0, category: 'Main' },
+    { id: 'item_6', name: 'Tiramisu', price: 5.5, category: 'Dessert' },
+    { id: 'item_7', name: 'Artisan Gelato', price: 4.5, category: 'Dessert' },
+    { id: 'item_8', name: 'Espresso', price: 2.5, category: 'Drinks' },
+    { id: 'item_9', name: 'San Pellegrino 750ml', price: 3.5, category: 'Drinks' },
+  ],
+  grocery: [
+    { id: 'item_g1', name: 'Organic Milk 1L', price: 2.1, category: 'Dairy', barcode: '4901234567890' },
+    { id: 'item_g2', name: 'Whole Wheat Bread', price: 1.8, category: 'Bakery', barcode: '5901234567890' },
+    { id: 'item_g3', name: 'Extra Virgin Olive Oil 750ml', price: 8.5, category: 'Pantry', barcode: '6901234567890' },
+    { id: 'item_g4', name: 'Free-Range Eggs 12pk', price: 4.2, category: 'Dairy', barcode: '7901234567890' },
+    { id: 'item_g5', name: 'Greek Yogurt 500g', price: 2.8, category: 'Dairy', barcode: '8901234567890' },
+    { id: 'item_g6', name: 'Organic Bananas', price: 1.2, category: 'Produce', isWeightBased: true, unit: 'kg', pricePerUnit: 1.2 },
+    { id: 'item_g7', name: 'Artisan Gouda Cheese', price: 12.5, category: 'Deli', isWeightBased: true, unit: 'kg', pricePerUnit: 12.5 },
+    { id: 'item_g8', name: 'Smoked Deli Ham', price: 8.99, category: 'Deli', isWeightBased: true, unit: 'kg', pricePerUnit: 8.99 },
+  ],
+  hotel: [
+    { id: 'item_h1', name: 'Standard Room Night', price: 85.0, category: 'Rooms' },
+    { id: 'item_h2', name: 'Deluxe Suite Night', price: 140.0, category: 'Rooms' },
+    { id: 'item_h3', name: 'Penthouse Suite Night', price: 350.0, category: 'Rooms' },
+    { id: 'item_h4', name: 'Breakfast Buffet', price: 15.0, category: 'Dining' },
+    { id: 'item_h5', name: 'Room Service Dinner', price: 45.0, category: 'Dining' },
+    { id: 'item_h6', name: 'Airport VIP Shuttle', price: 25.0, category: 'Services' },
+    { id: 'item_h7', name: 'Spa Full Body Massage 60m', price: 75.0, category: 'Wellness' },
+    { id: 'item_h8', name: 'Minibar Premium Snacks', price: 12.0, category: 'Minibar' },
+  ],
+};
+
+// -------------------------------------------------------
+// Table & Room Definitions
+// -------------------------------------------------------
+export interface PosTable {
+  id: string;
+  name: string;
+  seats: number;
+  floor: string;
+  x: number;
+  y: number;
+}
+
+export const TABLE_PRESETS: PosTable[] = [
+  { id: 'T1', name: 'Table 1', seats: 4, floor: 'Main Hall', x: 0, y: 0 },
+  { id: 'T2', name: 'Table 2', seats: 2, floor: 'Main Hall', x: 1, y: 0 },
+  { id: 'T3', name: 'Table 3', seats: 6, floor: 'Main Hall', x: 2, y: 0 },
+  { id: 'T4', name: 'Table 4', seats: 4, floor: 'Main Hall', x: 0, y: 1 },
+  { id: 'T5', name: 'Table 5', seats: 2, floor: 'Main Hall', x: 1, y: 1 },
+  { id: 'T6', name: 'Table 6', seats: 8, floor: 'Main Hall', x: 2, y: 1 },
+  { id: 'P1', name: 'Patio 1', seats: 4, floor: 'Patio', x: 0, y: 0 },
+  { id: 'P2', name: 'Patio 2', seats: 4, floor: 'Patio', x: 1, y: 0 },
+  { id: 'P3', name: 'Patio 3', seats: 2, floor: 'Patio', x: 2, y: 0 },
+  { id: 'V1', name: 'VIP 1', seats: 6, floor: 'VIP', x: 0, y: 0 },
+  { id: 'V2', name: 'VIP 2', seats: 8, floor: 'VIP', x: 1, y: 0 },
+];
+
+export interface PosRoom {
+  id: string;
+  number: string;
+  floor: number;
+  type: 'standard' | 'deluxe' | 'suite' | 'penthouse';
+  rate: number;
+}
+
+export const ROOM_PRESETS: PosRoom[] = [
+  { id: 'R101', number: '101', floor: 1, type: 'standard', rate: 85 },
+  { id: 'R102', number: '102', floor: 1, type: 'standard', rate: 85 },
+  { id: 'R103', number: '103', floor: 1, type: 'deluxe', rate: 120 },
+  { id: 'R201', number: '201', floor: 2, type: 'deluxe', rate: 120 },
+  { id: 'R202', number: '202', floor: 2, type: 'suite', rate: 200 },
+  { id: 'R203', number: '203', floor: 2, type: 'standard', rate: 85 },
+  { id: 'R301', number: '301', floor: 3, type: 'suite', rate: 200 },
+  { id: 'R302', number: '302', floor: 3, type: 'penthouse', rate: 350 },
+];
+
+// -------------------------------------------------------
 // PosConfig — the full customer configuration
 // -------------------------------------------------------
 export interface PosConfig {
@@ -373,6 +472,18 @@ export interface PosConfig {
 
   /** Authenticated staff roster with hashed PINs */
   staff: StaffMember[];
+
+  /** Dynamic product categories */
+  categories: string[];
+
+  /** Dynamic catalog items / products */
+  items: PosItem[];
+
+  /** Dynamic table layout for restaurant */
+  tables?: PosTable[];
+
+  /** Dynamic room list for hotels */
+  rooms?: PosRoom[];
 
   /** Dynamic fields added to each order (e.g. "Plate number", "Table note") */
   customOrderFields: {
@@ -480,6 +591,10 @@ export function createDefaultConfig(
     },
     roles: ROLE_PRESETS[businessType],
     staff: STAFF_PRESETS[businessType],
+    categories: CATEGORIES_PRESETS[businessType] || [],
+    items: ITEM_PRESETS[businessType] || [],
+    tables: businessType === 'restaurant' ? TABLE_PRESETS : undefined,
+    rooms: businessType === 'hotel' ? ROOM_PRESETS : undefined,
     customOrderFields: [],
     pricing: {
       currency: 'USD',

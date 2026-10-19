@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   Badge,
@@ -29,12 +29,18 @@ import {
 } from 'lucide-react';
 
 export default function TablesPage() {
-  const { tables, floors, activeFloor, setActiveFloor, setTableStatus, freeTable } =
+  const { tables, floors, activeFloor, setActiveFloor, setTableStatus, freeTable, syncFromConfig } =
     useTablesStore();
   const { orders, updateOrderStatus } = useOrdersStore();
   const config = useConfigStore((s) => s.config);
   const currencySymbol = config?.pricing?.currencySymbol || '$';
   const canManageTables = useCan('manage_tables');
+
+  useEffect(() => {
+    if (config?.tables && config.tables.length > 0) {
+      syncFromConfig(config.tables);
+    }
+  }, [config?.tables, syncFromConfig]);
 
   const [selectedTable, setSelectedTable] = useState<TableDef | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);

@@ -8,6 +8,7 @@ import { useCan } from '../lib/auth';
 import { dbService } from '../lib/db';
 import { syncEngine } from '../lib/syncEngine';
 import { printReceiptViaBrowser } from '../lib/receiptPrinter';
+import { ITEM_PRESETS, PosItem } from '@vibe-pos/config-schema';
 import {
   Button,
   Card,
@@ -60,36 +61,28 @@ export default function CheckoutPage() {
   // Dynamic custom order fields
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
 
-  // Sample items based on business type
-  const SAMPLE_PRODUCTS: Record<string, { id: string; name: string; price: number; category: string }[]> = {
-    restaurant: [
-      { id: '1', name: 'Margherita Pizza', price: 12.5, category: 'Main' },
-      { id: '2', name: 'Classic Burger', price: 9.0, category: 'Main' },
-      { id: '3', name: 'Caesar Salad', price: 7.5, category: 'Starters' },
-      { id: '4', name: 'Tiramisu', price: 5.5, category: 'Dessert' },
-      { id: '5', name: 'Espresso', price: 2.5, category: 'Drinks' },
-      { id: '6', name: 'Crispy Calamari', price: 10.0, category: 'Starters' },
-    ],
-    grocery: [
-      { id: 'g1', name: 'Fresh Milk 1L', price: 2.1, category: 'Dairy' },
-      { id: 'g2', name: 'Whole Wheat Bread', price: 1.8, category: 'Bakery' },
-      { id: 'g3', name: 'Organic Bananas (kg)', price: 3.0, category: 'Produce' },
-      { id: 'g4', name: 'Olive Oil 750ml', price: 8.5, category: 'Pantry' },
-      { id: 'g5', name: 'Greek Yogurt 500g', price: 2.8, category: 'Dairy' },
-      { id: 'g6', name: 'Free-Range Eggs 12pk', price: 4.2, category: 'Dairy' },
-    ],
-    hotel: [
-      { id: 'h1', name: 'Standard Room Night', price: 85.0, category: 'Rooms' },
-      { id: 'h2', name: 'Deluxe Suite Night', price: 140.0, category: 'Rooms' },
-      { id: 'h3', name: 'Breakfast Buffet', price: 15.0, category: 'Dining' },
-      { id: 'h4', name: 'Airport Shuttle', price: 25.0, category: 'Services' },
-      { id: 'h5', name: 'Spa Massage 60m', price: 75.0, category: 'Wellness' },
-      { id: 'h6', name: 'Late Checkout Fee', price: 30.0, category: 'Front Desk' },
-    ],
-  };
+  // Dynamic category filter
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
+  // Dynamic products from real config with preset fallback
   const businessType = config?.businessType || 'restaurant';
-  const products = SAMPLE_PRODUCTS[businessType] || SAMPLE_PRODUCTS.restaurant;
+  const rawProducts: PosItem[] =
+    config?.items && config.items.length > 0
+      ? config.items
+      : ITEM_PRESETS[businessType] || ITEM_PRESETS.restaurant;
+
+  const availableCategories = [
+    'All',
+    ...(config?.categories && config.categories.length > 0
+      ? config.categories
+      : Array.from(new Set(rawProducts.map((p) => p.category)))),
+  ];
+
+  const products =
+    selectedCategory === 'All'
+      ? rawProducts
+      : rawProducts.filter((p) => p.category === selectedCategory);
+
   const currencySymbol = config?.pricing?.currencySymbol || '$';
 
   const addToCart = (product: { id: string; name: string; price: number }) => {
@@ -212,21 +205,58 @@ export default function CheckoutPage() {
           </Badge>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 overflow-y-auto pr-1">
+        {/* Category Filter Pills */}
+        <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3 shrink-0">
+          {availableCategories.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setSelectedCategory(cat)}
+              className={`text-xs px-3 py-1 rounded-full font-medium transition shrink-0 select-none ${
+                selectedCategory === cat
+                  ? 'bg-blue-600 text-white shadow-sm font-semibold'
+                  : 'bg-gray-900 text-gray-400 hover:bg-gray-800 hover:text-white border border-gray-800'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 overflow-y-auto pr-1">
           {products.map((p) => (
             <Card
               key={p.id}
               onClick={() => addToCart(p)}
-              className="p-4 hover:border-blue-500/50 hover:bg-gray-800/60 transition cursor-pointer flex flex-col justify-between h-28 select-none border-gray-800 bg-gray-900/60"
+              className="p-3.5 hover:border-blue-500/50 hover:bg-gray-800/60 transition cursor-pointer flex flex-col justify-between h-28 select-none border-gray-800 bg-gray-900/60 relative group"
             >
               <div>
-                <p className="text-xs text-gray-400">{p.category}</p>
-                <h4 className="font-semibold text-white mt-1 leading-snug">{p.name}</h4>
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] text-gray-400 font-medium truncate">{p.category}</p>
+                  {p.isWeightBased && (
+                    <Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-500/30 text-emerald-400">
+                      ⚖️ /{p.unit || 'kg'}
+                    </Badge>
+                  )}
+                  {p.barcode && !p.isWeightBased && (
+                    <span className="text-[10px] text-gray-500 font-mono">
+                      #{p.barcode.slice(-4)}
+                    </span>
+                  )}
+                </div>
+                <h4 className="font-semibold text-white mt-1 text-sm leading-snug line-clamp-2">
+                  {p.name}
+                </h4>
               </div>
-              <p className="font-bold text-blue-400 font-mono">
-                {currencySymbol}
-                {p.price.toFixed(2)}
-              </p>
+              <div className="flex items-center justify-between mt-1">
+                <p className="font-bold text-blue-400 font-mono text-sm">
+                  {currencySymbol}
+                  {p.price.toFixed(2)}
+                </p>
+                <span className="text-[10px] text-gray-500 group-hover:text-blue-400 transition font-medium">
+                  + Add
+                </span>
+              </div>
             </Card>
           ))}
         </div>
